@@ -73,6 +73,12 @@ export const get = async (options: Get) => {
     return { fromCache: false, updateTime, data };
   } catch (error) {
     logger.error("❌ [ERROR] request failed");
+    if (axios.isAxiosError(error)) {
+      logger.error(`❌ [AXIOS] Status: ${error.response?.status}, Message: ${error.message}`);
+      if (error.code) logger.error(`❌ [AXIOS] Code: ${error.code}`);
+    } else if (error instanceof Error) {
+      logger.error(`❌ [ERROR] ${error.message}`);
+    }
     throw error;
   }
 };

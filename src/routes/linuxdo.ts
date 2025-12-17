@@ -1,16 +1,7 @@
 import type { RouterData } from "../types.js";
 import { get } from "../utils/getData.js";
 import { getTime } from "../utils/getTime.js";
-
-interface Topic {
-  id: number;
-  title: string;
-  excerpt: string;
-  last_poster_username: string;
-  created_at: string;
-  views: number;
-  like_count: number;
-}
+import { parseRSS } from "../utils/parseRSS.js";
 
 export const handleRoute = async (_: undefined, noCache: boolean) => {
   const listData = await getList(noCache);
@@ -19,7 +10,7 @@ export const handleRoute = async (_: undefined, noCache: boolean) => {
     title: "Linux.do",
     type: "热门文章",
     description: "Linux 技术社区热搜",
-    link: "https://linux.do/hot",
+    link: "https://linux.do/top",
     total: listData.data?.length || 0,
     ...listData,
   };
@@ -27,31 +18,30 @@ export const handleRoute = async (_: undefined, noCache: boolean) => {
 };
 
 const getList = async (noCache: boolean) => {
-  const url = "https://linux.do/top/weekly.json";
+  const url = "https://linux.do/top.rss";
   const result = await get({
     url,
     noCache,
     headers: {
-      "Accept": "application/json",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      "Accept": "application/rss+xml,application/xml,text/xml,*/*",
+      "Accept-Language": "en-US,en;q=0.9",
+      "Accept-Encoding": "identity"
     }
   });
-  
-  const topics = result.data.topic_list.topics as Topic[];
-  const list = topics.map((topic) => {
-    return {
-      id: topic.id,
-      title: topic.title,
-      desc: topic.excerpt,
-      author: topic.last_poster_username,
-      timestamp: getTime(topic.created_at),
-      url: `https://linux.do/t/${topic.id}`,
-      mobileUrl: `https://linux.do/t/${topic.id}`,
-      hot: topic.views || topic.like_count
-    };
-  });
 
+  const list = await parseRSS(result.data);
   return {
     ...result,
-    data: list
+    data: list.map((item, index) => ({
+      id: item.guid || `linuxdo-${index}`,
+      title: item.title || "",
+      desc: item.content?.replace(/<[^>]*>/g, '').substring(0, 200).trim() || "",
+      author: item.author || "",
+      timestamp: getTime(item.pubDate || 0),
+      hot: undefined,
+      url: item.link || "",
+      mobileUrl: item.link || "",
+    })),
   };
 }; 

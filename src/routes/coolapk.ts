@@ -23,7 +23,15 @@ const getList = async (noCache: boolean) => {
     noCache,
     headers: genHeaders(),
   });
-  const list = result.data.data;
+  // 检查返回数据结构
+  const list = result.data?.data || result.data || [];
+  if (!Array.isArray(list)) {
+    // 返回空数据，API可能返回了错误
+    return {
+      ...result,
+      data: [],
+    };
+  }
   return {
     ...result,
     data: list.map((v: RouterType["coolapk"]) => ({

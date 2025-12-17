@@ -32,24 +32,36 @@ const getList = async (noCache: boolean) => {
   });
   const listData: ListItem[] = [];
   // 获取主要内容
-  const pattern = /window.__APOLLO_STATE__=(.*);\(function\(\)/s;
+  const pattern = /window\.__APOLLO_STATE__=(.*);\(function\(\)/s;
   const matchResult = result.data?.match(pattern);
+  if (!matchResult || !matchResult[1]) {
+    return { ...result, data: [] };
+  }
   const jsonObject = JSON.parse(matchResult[1])["defaultClient"];
   // 获取所有分类
-  const allItems = jsonObject['$ROOT_QUERY.visionHotRank({"page":"home"})']["items"];
+  const hotRankKey = Object.keys(jsonObject).find(k => k.includes('visionHotRank') && k.includes('"page":"home"'));
+  if (!hotRankKey) {
+    return { ...result, data: [] };
+  }
+  const allItems = jsonObject[hotRankKey]?.["items"];
+  if (!allItems) {
+    return { ...result, data: [] };
+  }
   // 获取全部热榜
   allItems?.forEach((item: { id: string }) => {
     // 基础数据
     const hotItem: RouterType["kuaishou"] = jsonObject[item.id];
-    const id = hotItem.photoIds?.json?.[0];
+    if (!hotItem) return;
+    const photoId = hotItem.photoIds?.json?.[0];
+    const poster = hotItem.poster ? decodeURIComponent(hotItem.poster) : "";
     listData.push({
-      id: hotItem.id,
+      id: hotItem.id || hotItem.name,
       title: hotItem.name,
-      cover: decodeURIComponent(hotItem.poster),
-      hot: parseChineseNumber(hotItem.hotValue),
+      cover: poster,
+      hot: hotItem.hotValue ? parseChineseNumber(hotItem.hotValue) : undefined,
       timestamp: undefined,
-      url: `https://www.kuaishou.com/short-video/${id}`,
-      mobileUrl: `https://www.kuaishou.com/short-video/${id}`,
+      url: photoId ? `https://www.kuaishou.com/short-video/${photoId}` : `https://www.kuaishou.com/search/video?searchKey=${encodeURIComponent(hotItem.name)}`,
+      mobileUrl: photoId ? `https://www.kuaishou.com/short-video/${photoId}` : `https://www.kuaishou.com/search/video?searchKey=${encodeURIComponent(hotItem.name)}`,
     });
   });
   return {
